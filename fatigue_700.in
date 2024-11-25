@@ -1,0 +1,118 @@
+units         metal
+dimension     3
+boundary      p p p
+atom_style    atomic
+neighbor      2.0 bin
+neigh_modify  delay 5
+
+read_restart  restart_temp_150000.restart
+
+	
+#------ mass of atoms ------
+mass         1 58.9332
+mass         2 58.70
+mass         3 51.996
+mass         4 55.847
+mass         5 54.9380
+#------ force field ------
+pair_style     meam/c
+pair_coeff     * * 2NNlibrary.meam Co Ni Cr Fe Mn HEA.meam Co Ni Cr Fe Mn
+#------ I/O control and variables ------
+variable        TimeStep		equal 0.002
+variable        Time			equal ${TimeStep}*step
+variable		Pressure		equal 0.0
+variable		TDamp			equal ${TimeStep}*100
+variable        PDamp           equal ${TimeStep}*1000
+
+#variable T equal 500
+
+#------ computation ------
+#compute pepa all pe/atom
+#compute kepa all ke/atom
+
+#------ stage ------ equilibrium
+#reset_timestep 0 
+#timestep ${TimeStep}
+#------- stage 1 ------  equilibrium
+#velocity all create ${T} 4928459 rot yes dist gaussian
+#fix n1 all npt temp ${T} ${T} ${TDamp} x 0 0 ${PDamp}  y 0 0 ${PDamp} z 0 0 ${PDamp} 
+#restart        10000 restart_temp_*.restart 
+#dump           d1 all custom 5000 temp_500-700K_*.dump id type xu yu zu 
+#dump_modify    d1 sort id  
+#thermo         2500
+#thermo_style   custom step temp pe ke etotal  
+#run             25000
+
+#unfix n1
+#------ stage 2 ------  warming
+#fix n2 all npt temp ${T} 700 ${TDamp} x 0 0 ${PDamp}  y 0 0 ${PDamp} z 0 0 ${PDamp}
+#run             100000
+
+#unfix n2
+
+#fix n3 all npt temp 700 700 ${TDamp} x 0 0 ${PDamp}  y 0 0 ${PDamp} z 0 0 ${PDamp}
+#run             25000
+
+#unfix n3
+#undump d1
+#------ stage 3 ------ cycle
+reset_timestep 0 
+timestep ${TimeStep}
+
+restart        10000 restart_cycle_*.restart 
+dump           d1 all custom 2500 fatigue_700K_*.dump id type xu yu zu 
+dump_modify    d1 sort id  
+thermo         500
+thermo_style   custom step temp pe ke etotal
+
+label	    loopb
+
+variable srateA equal 1.0e9
+variable srate1 equal "v_srateA / 1.0e12"
+fix n1 all npt temp 700 700 ${TDamp} x 1.01325 1.01325 ${PDamp} z 1.01325 1.01325 ${PDamp} 
+fix d1 all deform 1 y erate ${srate1} units box remap x
+#restart        5000 restart_cycle_*.restart 
+#dump           d1 all custom 1 fatigue_500K_*.dump id type xu yu zu 
+#dump_modify    d1 sort id  
+#thermo         1
+#thermo_style   custom step temp pe ke etotal
+run 50000
+unfix n1
+unfix d1
+
+variable srateB equal -1.0e9
+variable srate2 equal "v_srateB / 1.0e12"
+fix n2 all npt temp 700 700 ${TDamp} x 1.01325 1.01325 ${PDamp} z 1.01325 1.01325 ${PDamp} 
+fix d2 all deform 1 y erate ${srate2} units box remap x
+run 50000
+unfix n2
+unfix d2
+
+variable srateC equal -1.0e9
+variable srate3 equal "v_srateC / 1.0e12"
+fix n3 all npt temp 700 700 ${TDamp} x 1.01325 1.01325 ${PDamp} z 1.01325 1.01325 ${PDamp} 
+fix d3 all deform 1 y erate ${srate3} units box remap x
+run 50000
+unfix n3
+unfix d3
+
+variable srateD equal 1.0e9
+variable srate4 equal "v_srateD / 1.0e12"
+fix n4 all npt temp 700 700 ${TDamp} x 1.01325 1.01325 ${PDamp} z 1.01325 1.01325 ${PDamp} 
+fix d4 all deform 1 y erate ${srate4} units box remap x
+run 50000
+unfix n4
+unfix d4
+#undump d1
+
+variable  b loop 10
+next	  b
+jump	  fatigue_700.in loopb
+
+print "ALL DONE"
+
+
+
+
+
+
